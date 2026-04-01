@@ -1,0 +1,418 @@
+{
+  "name": "Tilewatch",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ebb1271d-96e1-45e1-8013-20974c8a79e7",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -224,
+        48
+      ],
+      "id": "3a1ae4a5-519f-41da-ad43-e85dfeb92985",
+      "name": "Webhook",
+      "webhookId": "ebb1271d-96e1-45e1-8013-20974c8a79e7"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a structural safety monitoring engineer. A sensor is mounted on a billboard pole or bridge pillar to detect dangerous tilting and prevent collapse. Analyze the sensor data and respond ONLY in Thai with ONLY valid JSON, no markdown, no extra text.\n\nSensor data:\n\nDevice: {{ $json.device_id }}\nTemp (อุณหภูมิในตัวอุปกรณ์): {{ $json.temperature }}°C\nPressure: {{ $json.pressure }}hPa\nAccel X/Y/Z:{{ $json.accel_x }} g / {{ $json.accel_y }}g / {{ $json.accel_z }}g\nRoll (เอียงซ้าย/ขวา): {{ $json.roll_deg }}° → {{ $json.roll_direction }}\nPitch (เอียงหน้า/หลัง): {{ $json.pitch_deg }}° → {{ $json.pitch_direction }}\nG-force รวม: {{ $json.magnitude_g }}g\nStatus rules (ประเมินตามลำดับความรุนแรง ถ้าเข้าเงื่อนไขใดข้อหนึ่งให้ใช้ status นั้น):\n\nstatus=\"วิกฤต\" if ANY of:\n\n|roll_deg| > 8° หรือ |pitch_deg| > 8° → โครงสร้างเอียงอันตราย เสี่ยงล้ม\nmagnitude_g > 1.4g → แรงกระแทกหรือสั่นสะเทือนรุนแรง\ntemperature > 60°C → อุปกรณ์ร้อนวิกฤต อาจเสียหาย\nstatus=\"ระวัง\" if ANY of:\n\n|roll_deg| > 3° หรือ |pitch_deg| > 3° → โครงสร้างเริ่มเอียง ควรตรวจสอบ\nmagnitude_g > 1.15g → มีแรงสั่นสะเทือนผิดปกติ\ntemperature > 40°C → อุปกรณ์ร้อนเกินปกติ\nstatus=\"ปกติ\" if: ทุกค่าอยู่ในเกณฑ์ปลอดภัย\n\nReturn ONLY this JSON:\n{\n\"status\": \"ปกติ|ระวัง|วิกฤต\",\n\"summary\": \"1 ประโยคสั้น ระบุสิ่งที่ตรวจพบและสิ่งที่ต้องทำทันที\",\n\"detail\": \"📐 การเอียง Roll: [ค่า]° [ทิศทาง] → [ปลอดภัย/เริ่มเอียง/อันตราย]\\n📐 การเอียง Pitch: [ค่า]° [ทิศทาง] → [ปลอดภัย/เริ่มเอียง/อันตราย]\\n📳 G-force รวม: [ค่า]g → [ปกติ/ผิดปกติ]\\n📳 แรงสั่น X/Y/Z: [ค่า]g / [ค่า]g / [ค่า]g\\n🌡️ อุณหภูมิอุปกรณ์: [ค่า]°C → [ปกติ/ร้อนเกิน/วิกฤต]\\n📉 ความกดอากาศ: [ค่า]hPa\\n⚠️ สาเหตุที่น่ากังวล: [อธิบาย 1 ประโยค หรือ 'ไม่พบความผิดปกติ']\\n✅ คำแนะนำ: [1-2 ข้อ]\"\n}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        224,
+        48
+      ],
+      "id": "8cc6d709-09ea-4c01-8d5a-150070a22197",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ดึงข้อมูลจากช่อง output ของ AI Agent มาแปลง\nconst rawData = $json.output;\n\n// สั่งให้ระบบ \"แกะ\" ตัวอักษรออกมาเป็นข้อมูล JSON จริงๆ\nconst parsedData = JSON.parse(rawData);\n\n// ส่งข้อมูลที่แกะแล้วออกไปให้โหนดถัดไปใช้งาน\nreturn parsedData;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        48
+      ],
+      "id": "2c90931d-ee94-4630-921d-c804a10a405d",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "sendTo": "veraphonwon@gmail.com",
+        "subject": "=แจ้งเตือนสถานะ: {{ $json.status }}",
+        "message": "=<!DOCTYPE html>\n<html lang=\"th\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>แจ้งเตือนวิกฤต</title>\n<link href=\"https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap\" rel=\"stylesheet\">\n</head>\n<body style=\"margin:0;padding:0;background:#f0f0f0;font-family:'IBM Plex Sans Thai',sans-serif;\">\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f0f0f0;min-height:100vh;\">\n  <tr>\n    <td align=\"center\" style=\"padding:40px 16px;\">\n      <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;\">\n\n        <!-- RED TOP STRIPE -->\n        <tr>\n          <td style=\"background:#d42020;padding:5px 0;border-radius:4px 4px 0 0;\"></td>\n        </tr>\n\n        <!-- MAIN CARD -->\n        <tr>\n          <td style=\"background:#ffffff;border:1px solid #e0e0e0;border-top:3px solid #d42020;border-radius:0 0 4px 4px;overflow:hidden;\">\n\n            <!-- TOP BAR -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:18px 32px 16px;border-bottom:1px solid #ececec;background:#fafafa;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td>\n                        <span style=\"font-family:'IBM Plex Mono',monospace;font-size:13px;color:#d42020;letter-spacing:0.15em;text-transform:uppercase;font-weight:600;\">DISASTER WARNING SYSTEM</span>\n                      </td>\n                      <td align=\"right\">\n                        <span style=\"font-family:'IBM Plex Mono',monospace;font-size:12px;color:#888888;\">{{ $('Code in JavaScript2').item.json.device_id }}</span>\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n              </tr>\n            </table>\n\n            <!-- ALERT BADGE + HEADLINE -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:32px 32px 24px;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td valign=\"middle\">\n                        <table cellpadding=\"0\" cellspacing=\"0\">\n                          <tr>\n                            <td style=\"background:#d42020;border-radius:3px;padding:5px 14px;\">\n                              <span style=\"font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#ffffff;letter-spacing:0.12em;\">● CRITICAL ALERT</span>\n                            </td>\n                          </tr>\n                        </table>\n                      </td>\n                      <td align=\"right\" valign=\"middle\">\n                        <div style=\"width:44px;height:44px;background:#fff0f0;border:1.5px solid #f5b0b0;border-radius:50%;text-align:center;line-height:44px;\">\n                          <span style=\"font-size:20px;display:inline-block;line-height:44px;\">🚨</span>\n                        </div>\n                      </td>\n                    </tr>\n                  </table>\n\n                  <div style=\"margin-top:20px;\">\n                    <h1 style=\"margin:0;font-size:36px;font-weight:700;color:#111111;line-height:1.1;letter-spacing:-0.02em;\">สถานการณ์<br><span style=\"color:#d42020;\">วิกฤต</span></h1>\n                  </div>\n                  <p style=\"margin:14px 0 0;font-size:15px;font-weight:600;color:#222222;line-height:1.7;\">{{ $json.summary }}</p>\n                </td>\n              </tr>\n            </table>\n\n            <!-- SENSOR GRID -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:0 32px 24px;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #e8e8e8;border-radius:4px;overflow:hidden;\">\n\n                    <!-- Row 1 -->\n                    <tr>\n                      <td width=\"50%\" style=\"padding:16px 20px;border-bottom:1px solid #e8e8e8;border-right:1px solid #e8e8e8;background:#fafafa;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;\">TEMPERATURE</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;color:#111111;\">{{ $('Code in JavaScript2').item.json.temperature }}<span style=\"font-size:14px;color:#aaaaaa;font-weight:400;\">°C</span></div>\n                      </td>\n                      <td width=\"50%\" style=\"padding:16px 20px;border-bottom:1px solid #e8e8e8;background:#fafafa;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;\">PRESSURE</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;color:#111111;\">{{ $('Code in JavaScript2').item.json.pressure }}<span style=\"font-size:14px;color:#aaaaaa;font-weight:400;\"> hPa</span></div>\n                      </td>\n                    </tr>\n\n                    <!-- Row 2 -->\n                    <tr>\n                      <td width=\"50%\" style=\"padding:16px 20px;border-right:1px solid #e8e8e8;background:#fafafa;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;\">ROLL</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;color:#111111;\">{{ $('Code in JavaScript2').item.json.roll_deg }}<span style=\"font-size:14px;color:#aaaaaa;font-weight:400;\">°</span></div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:11px;color:#d42020;margin-top:4px;font-weight:600;\">{{ $('Code in JavaScript2').item.json.roll_direction }}</div>\n                      </td>\n                      <td width=\"50%\" style=\"padding:16px 20px;background:#fafafa;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;\">PITCH</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;color:#111111;\">{{ $('Code in JavaScript2').item.json.pitch_deg }}<span style=\"font-size:14px;color:#aaaaaa;font-weight:400;\">°</span></div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:11px;color:#d42020;margin-top:4px;font-weight:600;\">{{ $('Code in JavaScript2').item.json.pitch_direction }}</div>\n                      </td>\n                    </tr>\n\n                  </table>\n                </td>\n              </tr>\n            </table>\n\n            <!-- ACCEL ROW -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:0 32px 24px;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #e8e8e8;border-radius:4px;overflow:hidden;\">\n                    <tr>\n                      <td width=\"33%\" style=\"padding:14px 16px;background:#fafafa;text-align:center;border-right:1px solid #e8e8e8;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.1em;margin-bottom:6px;\">ACCEL X</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:20px;color:#111111;font-weight:600;\">{{ $('Code in JavaScript2').item.json.accel_x }}<span style=\"font-size:11px;color:#aaaaaa;font-weight:400;\">g</span></div>\n                      </td>\n                      <td width=\"33%\" style=\"padding:14px 16px;background:#fafafa;text-align:center;border-right:1px solid #e8e8e8;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.1em;margin-bottom:6px;\">ACCEL Y</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:20px;color:#111111;font-weight:600;\">{{ $('Code in JavaScript2').item.json.accel_y }}<span style=\"font-size:11px;color:#aaaaaa;font-weight:400;\">g</span></div>\n                      </td>\n                      <td width=\"33%\" style=\"padding:14px 16px;background:#fafafa;text-align:center;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.1em;margin-bottom:6px;\">ACCEL Z</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:20px;color:#111111;font-weight:600;\">{{ $('Code in JavaScript2').item.json.accel_z }}<span style=\"font-size:11px;color:#aaaaaa;font-weight:400;\">g</span></div>\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n              </tr>\n            </table>\n\n            <!-- DETAIL BOX -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:0 32px 36px;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#fafafa;border:1px solid #e8e8e8;border-left:3px solid #d42020;border-radius:0 4px 4px 0;\">\n                    <tr>\n                      <td style=\"padding:20px 24px;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#d42020;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;margin-bottom:12px;\">ANALYSIS DETAIL</div>\n                        <div style=\"font-size:14px;color:#333333;line-height:1.9;white-space:pre-line;\">{{ $json.detail }}</div>\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n              </tr>\n            </table>\n\n          </td>\n        </tr>\n\n        <!-- FOOTER -->\n        <tr>\n          <td style=\"padding:20px 0;text-align:center;\">\n            <span style=\"font-family:'IBM Plex Mono',monospace;font-size:12px;color:#aaaaaa;letter-spacing:0.1em;\">IoT DISASTER WARNING SYSTEM · AUTO-GENERATED ALERT</span>\n          </td>\n        </tr>\n\n      </table>\n    </td>\n  </tr>\n</table>\n</body>\n</html>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1232,
+        -144
+      ],
+      "id": "0c9313f3-cef4-4e69-bab5-ce23792b1e4d",
+      "name": "Send a message",
+      "webhookId": "56f7594a-918f-4456-a520-713870220f22",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "F6bQ23eT9ex4XXCE",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "วิกฤต",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ee549e8c-7ede-4688-bf20-75989af0cbd3"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f2b70967-4f1d-4fc2-8ac1-439a0f322392",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "ระวัง",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3d407260-e642-4732-9621-c0f6119738c6",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "ปกติ",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1008,
+        32
+      ],
+      "id": "f1ebbd89-0298-4a90-ade6-5ae2e76762dc",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "sendTo": "veraphonwon@gmail.com",
+        "subject": "=แจ้งเตือนสถานะ: {{ $json.status }}",
+        "message": "=<!DOCTYPE html>\n<html lang=\"th\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>แจ้งเตือนระวัง</title>\n<link href=\"https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap\" rel=\"stylesheet\">\n</head>\n<body style=\"margin:0;padding:0;background:#f0f0f0;font-family:'IBM Plex Sans Thai',sans-serif;\">\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f0f0f0;min-height:100vh;\">\n  <tr>\n    <td align=\"center\" style=\"padding:40px 16px;\">\n      <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;\">\n\n        <!-- ORANGE TOP STRIPE -->\n        <tr>\n          <td style=\"background:#e07800;padding:5px 0;border-radius:4px 4px 0 0;\"></td>\n        </tr>\n\n        <!-- MAIN CARD -->\n        <tr>\n          <td style=\"background:#ffffff;border:1px solid #e0e0e0;border-top:3px solid #e07800;border-radius:0 0 4px 4px;overflow:hidden;\">\n\n            <!-- TOP BAR -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:18px 32px 16px;border-bottom:1px solid #ececec;background:#fafafa;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td>\n                        <span style=\"font-family:'IBM Plex Mono',monospace;font-size:13px;color:#e07800;letter-spacing:0.15em;text-transform:uppercase;font-weight:600;\">DISASTER WARNING SYSTEM</span>\n                      </td>\n                      <td align=\"right\">\n                        <span style=\"font-family:'IBM Plex Mono',monospace;font-size:12px;color:#888888;\">{{ $json.device_id }}</span>\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n              </tr>\n            </table>\n\n            <!-- ALERT BADGE + HEADLINE -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:32px 32px 24px;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td valign=\"middle\">\n                        <table cellpadding=\"0\" cellspacing=\"0\">\n                          <tr>\n                            <td style=\"background:#e07800;border-radius:3px;padding:5px 14px;\">\n                              <span style=\"font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#ffffff;letter-spacing:0.12em;\">⚠ WARNING</span>\n                            </td>\n                          </tr>\n                        </table>\n                      </td>\n                      <td align=\"right\" valign=\"middle\">\n                        <div style=\"width:44px;height:44px;background:#fff8f0;border:1.5px solid #f5c080;border-radius:50%;text-align:center;line-height:44px;\">\n                          <span style=\"font-size:20px;display:inline-block;line-height:44px;\">⚠️</span>\n                        </div>\n                      </td>\n                    </tr>\n                  </table>\n\n                  <div style=\"margin-top:20px;\">\n                    <h1 style=\"margin:0;font-size:36px;font-weight:700;color:#111111;line-height:1.1;letter-spacing:-0.02em;\">สถานการณ์<br><span style=\"color:#e07800;\">ต้องระวัง</span></h1>\n                  </div>\n                  <p style=\"margin:14px 0 0;font-size:15px;font-weight:600;color:#222222;line-height:1.7;\">{{ $json.summary }}</p>\n                </td>\n              </tr>\n            </table>\n\n            <!-- SENSOR GRID -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:0 32px 24px;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #e8e8e8;border-radius:4px;overflow:hidden;\">\n\n                    <!-- Row 1 -->\n                    <tr>\n                      <td width=\"50%\" style=\"padding:16px 20px;border-bottom:1px solid #e8e8e8;border-right:1px solid #e8e8e8;background:#fafafa;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;\">TEMPERATURE</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;color:#111111;\">{{ $json.temperature }}<span style=\"font-size:14px;color:#aaaaaa;font-weight:400;\">°C</span></div>\n                      </td>\n                      <td width=\"50%\" style=\"padding:16px 20px;border-bottom:1px solid #e8e8e8;background:#fafafa;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;\">PRESSURE</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;color:#111111;\">{{ $json.pressure }}<span style=\"font-size:14px;color:#aaaaaa;font-weight:400;\"> hPa</span></div>\n                      </td>\n                    </tr>\n\n                    <!-- Row 2 -->\n                    <tr>\n                      <td width=\"50%\" style=\"padding:16px 20px;border-right:1px solid #e8e8e8;background:#fafafa;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;\">ROLL</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;color:#111111;\">{{ $json.roll_deg }}<span style=\"font-size:14px;color:#aaaaaa;font-weight:400;\">°</span></div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:11px;color:#e07800;margin-top:4px;font-weight:600;\">{{ $json.roll_direction }}</div>\n                      </td>\n                      <td width=\"50%\" style=\"padding:16px 20px;background:#fafafa;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;\">PITCH</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;color:#111111;\">{{ $json.pitch_deg }}<span style=\"font-size:14px;color:#aaaaaa;font-weight:400;\">°</span></div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:11px;color:#e07800;margin-top:4px;font-weight:600;\">{{ $json.pitch_direction }}</div>\n                      </td>\n                    </tr>\n\n                  </table>\n                </td>\n              </tr>\n            </table>\n\n            <!-- ACCEL ROW -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:0 32px 24px;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #e8e8e8;border-radius:4px;overflow:hidden;\">\n                    <tr>\n                      <td width=\"33%\" style=\"padding:14px 16px;background:#fafafa;text-align:center;border-right:1px solid #e8e8e8;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.1em;margin-bottom:6px;\">ACCEL X</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:20px;color:#111111;font-weight:600;\">{{ $json.accel_x }}<span style=\"font-size:11px;color:#aaaaaa;font-weight:400;\">g</span></div>\n                      </td>\n                      <td width=\"33%\" style=\"padding:14px 16px;background:#fafafa;text-align:center;border-right:1px solid #e8e8e8;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.1em;margin-bottom:6px;\">ACCEL Y</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:20px;color:#111111;font-weight:600;\">{{ $json.accel_y }}<span style=\"font-size:11px;color:#aaaaaa;font-weight:400;\">g</span></div>\n                      </td>\n                      <td width=\"33%\" style=\"padding:14px 16px;background:#fafafa;text-align:center;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.1em;margin-bottom:6px;\">ACCEL Z</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:20px;color:#111111;font-weight:600;\">{{ $json.accel_z }}<span style=\"font-size:11px;color:#aaaaaa;font-weight:400;\">g</span></div>\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n              </tr>\n            </table>\n\n            <!-- DETAIL BOX -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:0 32px 36px;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#fafafa;border:1px solid #e8e8e8;border-left:3px solid #e07800;border-radius:0 4px 4px 0;\">\n                    <tr>\n                      <td style=\"padding:20px 24px;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#e07800;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;margin-bottom:12px;\">ANALYSIS DETAIL</div>\n                        <div style=\"font-size:14px;color:#333333;line-height:1.9;white-space:pre-line;\">{{ $json.detail }}</div>\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n              </tr>\n            </table>\n\n          </td>\n        </tr>\n\n        <!-- FOOTER -->\n        <tr>\n          <td style=\"padding:20px 0;text-align:center;\">\n            <span style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#aaaaaa;letter-spacing:0.1em;\">IoT DISASTER WARNING SYSTEM · AUTO-GENERATED ALERT</span>\n          </td>\n        </tr>\n\n      </table>\n    </td>\n  </tr>\n</table>\n</body>\n</html>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1232,
+        48
+      ],
+      "id": "f742322b-5b7a-4dd9-ae9b-2178a409b1f2",
+      "name": "Send a message1",
+      "webhookId": "56f7594a-918f-4456-a520-713870220f22",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "F6bQ23eT9ex4XXCE",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "veraphonwon@gmail.com",
+        "subject": "=แจ้งเตือนสถานะ: {{ $json.status }}",
+        "message": "=<!DOCTYPE html>\n<html lang=\"th\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>รายงานสถานะปกติ</title>\n<link href=\"https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap\" rel=\"stylesheet\">\n</head>\n<body style=\"margin:0;padding:0;background:#f0f0f0;font-family:'IBM Plex Sans Thai',sans-serif;\">\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f0f0f0;min-height:100vh;\">\n  <tr>\n    <td align=\"center\" style=\"padding:40px 16px;\">\n      <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;\">\n\n        <!-- GREEN TOP STRIPE -->\n        <tr>\n          <td style=\"background:#1a9e4a;padding:5px 0;border-radius:4px 4px 0 0;\"></td>\n        </tr>\n\n        <!-- MAIN CARD -->\n        <tr>\n          <td style=\"background:#ffffff;border:1px solid #e0e0e0;border-top:3px solid #1a9e4a;border-radius:0 0 4px 4px;overflow:hidden;\">\n\n            <!-- TOP BAR -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:18px 32px 16px;border-bottom:1px solid #ececec;background:#fafafa;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td>\n                        <span style=\"font-family:'IBM Plex Mono',monospace;font-size:13px;color:#1a9e4a;letter-spacing:0.15em;text-transform:uppercase;font-weight:600;\">DISASTER WARNING SYSTEM</span>\n                      </td>\n                      <td align=\"right\">\n                        <span style=\"font-family:'IBM Plex Mono',monospace;font-size:12px;color:#888888;\">{{ $('Code in JavaScript2').item.json.device_id }}</span>\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n              </tr>\n            </table>\n\n            <!-- STATUS BADGE + HEADLINE -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:32px 32px 24px;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n                    <tr>\n                      <td valign=\"middle\">\n                        <table cellpadding=\"0\" cellspacing=\"0\">\n                          <tr>\n                            <td style=\"background:#1a9e4a;border-radius:3px;padding:5px 14px;\">\n                              <span style=\"font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#ffffff;letter-spacing:0.12em;\">✓ ALL SYSTEMS NORMAL</span>\n                            </td>\n                          </tr>\n                        </table>\n                      </td>\n                      <td align=\"right\" valign=\"middle\">\n                        <div style=\"width:44px;height:44px;background:#f0fff4;border:1.5px solid #90d4a8;border-radius:50%;text-align:center;line-height:44px;\">\n                          <span style=\"font-size:20px;display:inline-block;line-height:44px;\">✅</span>\n                        </div>\n                      </td>\n                    </tr>\n                  </table>\n\n                  <div style=\"margin-top:20px;\">\n                    <h1 style=\"margin:0;font-size:36px;font-weight:700;color:#111111;line-height:1.1;letter-spacing:-0.02em;\">สถานะ<br><span style=\"color:#1a9e4a;\">ปกติ</span></h1>\n                  </div>\n                  <p style=\"margin:14px 0 0;font-size:15px;font-weight:600;color:#222222;line-height:1.7;\">{{ $json.summary }}</p>\n                </td>\n              </tr>\n            </table>\n\n            <!-- SENSOR GRID -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:0 32px 24px;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #e8e8e8;border-radius:4px;overflow:hidden;\">\n\n                    <!-- Row 1 -->\n                    <tr>\n                      <td width=\"50%\" style=\"padding:16px 20px;border-bottom:1px solid #e8e8e8;border-right:1px solid #e8e8e8;background:#fafafa;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;\">TEMPERATURE</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;color:#111111;\">{{ $('Code in JavaScript2').item.json.temperature }}<span style=\"font-size:14px;color:#aaaaaa;font-weight:400;\">°C</span></div>\n                      </td>\n                      <td width=\"50%\" style=\"padding:16px 20px;border-bottom:1px solid #e8e8e8;background:#fafafa;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;\">PRESSURE</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;color:#111111;\">{{ $('Code in JavaScript2').item.json.pressure }}<span style=\"font-size:14px;color:#aaaaaa;font-weight:400;\"> hPa</span></div>\n                      </td>\n                    </tr>\n\n                    <!-- Row 2 -->\n                    <tr>\n                      <td width=\"50%\" style=\"padding:16px 20px;border-right:1px solid #e8e8e8;background:#fafafa;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;\">ROLL</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;color:#111111;\">{{ $('Code in JavaScript2').item.json.roll_deg }}<span style=\"font-size:14px;color:#aaaaaa;font-weight:400;\">°</span></div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:11px;color:#1a9e4a;margin-top:4px;font-weight:600;\">{{ $('Code in JavaScript2').item.json.roll_direction }}</div>\n                      </td>\n                      <td width=\"50%\" style=\"padding:16px 20px;background:#fafafa;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;\">PITCH</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;color:#111111;\">{{ $('Code in JavaScript2').item.json.pitch_deg }}<span style=\"font-size:14px;color:#aaaaaa;font-weight:400;\">°</span></div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:11px;color:#1a9e4a;margin-top:4px;font-weight:600;\">{{ $('Code in JavaScript2').item.json.pitch_direction }}</div>\n                      </td>\n                    </tr>\n\n                  </table>\n                </td>\n              </tr>\n            </table>\n\n            <!-- ACCEL ROW -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:0 32px 24px;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #e8e8e8;border-radius:4px;overflow:hidden;\">\n                    <tr>\n                      <td width=\"33%\" style=\"padding:14px 16px;background:#fafafa;text-align:center;border-right:1px solid #e8e8e8;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.1em;margin-bottom:6px;\">ACCEL X</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:20px;color:#111111;font-weight:600;\">{{ $('Code in JavaScript2').item.json.accel_x }}<span style=\"font-size:11px;color:#aaaaaa;font-weight:400;\">g</span></div>\n                      </td>\n                      <td width=\"33%\" style=\"padding:14px 16px;background:#fafafa;text-align:center;border-right:1px solid #e8e8e8;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.1em;margin-bottom:6px;\">ACCEL Y</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:20px;color:#111111;font-weight:600;\">{{ $('Code in JavaScript2').item.json.accel_y }}<span style=\"font-size:11px;color:#aaaaaa;font-weight:400;\">g</span></div>\n                      </td>\n                      <td width=\"33%\" style=\"padding:14px 16px;background:#fafafa;text-align:center;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#999999;letter-spacing:0.1em;margin-bottom:6px;\">ACCEL Z</div>\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:20px;color:#111111;font-weight:600;\">{{ $('Code in JavaScript2').item.json.accel_z }}<span style=\"font-size:11px;color:#aaaaaa;font-weight:400;\">g</span></div>\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n              </tr>\n            </table>\n\n            <!-- DETAIL BOX -->\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n              <tr>\n                <td style=\"padding:0 32px 36px;\">\n                  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#fafafa;border:1px solid #e8e8e8;border-left:3px solid #1a9e4a;border-radius:0 4px 4px 0;\">\n                    <tr>\n                      <td style=\"padding:20px 24px;\">\n                        <div style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#1a9e4a;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;margin-bottom:12px;\">ANALYSIS DETAIL</div>\n                        <div style=\"font-size:14px;color:#333333;line-height:1.9;white-space:pre-line;\">{{ $json.detail }}</div>\n                      </td>\n                    </tr>\n                  </table>\n                </td>\n              </tr>\n            </table>\n\n          </td>\n        </tr>\n\n        <!-- FOOTER -->\n        <tr>\n          <td style=\"padding:20px 0;text-align:center;\">\n            <span style=\"font-family:'IBM Plex Mono',monospace;font-size:10px;color:#aaaaaa;letter-spacing:0.1em;\">IoT DISASTER WARNING SYSTEM · AUTO-GENERATED REPORT</span>\n          </td>\n        </tr>\n\n      </table>\n    </td>\n  </tr>\n</table>\n</body>\n</html>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1232,
+        240
+      ],
+      "id": "4ea8942f-28b4-4beb-ad60-2852b4c78a9c",
+      "name": "Send a message2",
+      "webhookId": "56f7594a-918f-4456-a520-713870220f22",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "F6bQ23eT9ex4XXCE",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\n\nconst ax = body[0].accel_x;\nconst ay = body[0].accel_y;\nconst az = body[0].accel_z;\n\nvar rollRad  = Math.atan2(ay, az);\nvar pitchRad = Math.atan2(-ax, Math.sqrt((ay * ay) + (az * az)));\n\nvar rollDeg  = Math.round(rollRad  * (180 / Math.PI) * 100) / 100;\nvar pitchDeg = Math.round(pitchRad * (180 / Math.PI) * 100) / 100;\nvar magnitude = Math.round(Math.sqrt((ax*ax)+(ay*ay)+(az*az)) * 10000) / 10000;\n\nvar rollDir  = rollDeg  > 0 ? \"เอียงซ้าย\" : rollDeg  < 0 ? \"เอียงขวา\" : \"ตรง\";\nvar pitchDir = pitchDeg > 0 ? \"เงยขึ้น\"   : pitchDeg < 0 ? \"ก้มลง\"    : \"ตรง\";\n\nreturn [\n  {\n    json: {\n      temperature:     body[0].temperature,\n      pressure:        body[0].pressure,\n      device_id:       body[1].device_id,\n      accel_x:         ax,\n      accel_y:         ay,\n      accel_z:         az,\n      roll_deg:        rollDeg,\n      pitch_deg:       pitchDeg,\n      roll_direction:  rollDir,\n      pitch_direction: pitchDir,\n      magnitude_g:     magnitude\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        48
+      ],
+      "id": "7f81159c-857a-4b72-bd68-aedf880d6f0e",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Ci4QBAIpk3K7O_Vl6N-m-o8jYz-EOcqSyirJR1rugNE",
+          "mode": "list",
+          "cachedResultName": "Tileform (Responses)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Ci4QBAIpk3K7O_Vl6N-m-o8jYz-EOcqSyirJR1rugNE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 709299167,
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Ci4QBAIpk3K7O_Vl6N-m-o8jYz-EOcqSyirJR1rugNE/edit#gid=709299167"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        800,
+        384
+      ],
+      "id": "ee61fbfa-a2d0-4177-9070-b0ff5caab26e",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "jHxY3JnV1KQH4esx",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        96,
+        256
+      ],
+      "id": "f1136c7a-43ad-4d15-b7bb-2a9496d065b9",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "AmAcv7mtQSZ458nL",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "multicast",
+        "to": "={{ $json.userId }}",
+        "messages": {
+          "values": [
+            {
+              "quoteToken": "=",
+              "text": "={{ $('Code in JavaScript').item.json.status }}\n{{ $('Code in JavaScript').item.json.summary }}\n{{ $('Code in JavaScript').item.json.detail }}"
+            }
+          ]
+        }
+      },
+      "type": "@aotoki/n8n-nodes-line-messaging.lineMessaging",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        432
+      ],
+      "id": "f1559d39-77ae-4eb7-b6c4-010b75e079ab",
+      "name": "Line Messaging",
+      "credentials": {
+        "lineMessagingApi": {
+          "id": "XJ5eQs54aCUJEszR",
+          "name": "Line Messaging account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        []
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Line Messaging",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "b30a3c59-fcaa-4aef-bc38-8818c178638c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "68633611b80e6169253c61d19047ce0d71dd34b504b578d3368fe56150de7aac"
+  },
+  "id": "QbWAdCyLOC6e0TcaZ-zLM",
+  "tags": []
+}

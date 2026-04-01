@@ -1,0 +1,26 @@
+[
+    {
+        "id": "54697c23103b147a",
+        "type": "http request",
+        "z": "f6f2187d.f17ca8",
+        "name": "",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "https://docs.google.com/forms/d/e/1FAIpQLSfF_lLbB5HZS454z59VT_bM23KCiWKf655v6M7rfYyugyzDUw/formResponse?entry.1513334090={{accel_x}}&entry.1823566549={{accel_y}}&entry.1328944399={{accel_z}}&entry.453301165={{temperature}}&entry.1469012976={{pressure}}&entry.764060692={{device_id}}&entry.493130307={{roll_deg}}&entry.1199438379={{pitch_deg}}&entry.96362068={{roll_direction}}&entry.688725723={{pitch_direction}}&entry.1719432914={{magnitude_g}}",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 1010,
+        "y": 760,
+        "wires": [
+            [
+                "6371b3ebd706861b"
+            ]
+        ]
+    }
+]
